@@ -93,24 +93,24 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping(Constants.CONFIG_CONTROLLER_PATH)
 public class ConfigController {
-    
+
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigController.class);
-    
+
     private static final String EXPORT_CONFIG_FILE_NAME = "nacos_config_export_";
-    
+
     private static final String EXPORT_CONFIG_FILE_NAME_EXT = ".zip";
-    
+
     private static final String EXPORT_CONFIG_FILE_NAME_DATE_FORMAT = "yyyyMMddHHmmss";
-    
+
     @Autowired
     private ConfigServletInner inner;
-    
+
     @Autowired
     private PersistService persistService;
-    
+
     @Autowired
     private ConfigSubService configSubService;
-    
+
     /**
      * Adds or updates non-aggregated data.
      *
@@ -130,7 +130,7 @@ public class ConfigController {
             @RequestParam(value = "effect", required = false) String effect,
             @RequestParam(value = "type", required = false) String type,
             @RequestParam(value = "schema", required = false) String schema) throws NacosException {
-        
+
         final String srcIp = RequestUtil.getRemoteIp(request);
         final String requestIpApp = RequestUtil.getAppName(request);
         srcUser = RequestUtil.getSrcUserName(request);
@@ -139,6 +139,7 @@ public class ConfigController {
             type = ConfigType.getDefaultType().getType();
         }
         // check tenant
+        // tenant 是 namesapce
         ParamUtils.checkTenant(tenant);
         ParamUtils.checkParam(dataId, group, "datumId", content);
         ParamUtils.checkParam(tag);
@@ -150,13 +151,13 @@ public class ConfigController {
         MapUtil.putIfValNoNull(configAdvanceInfo, "type", type);
         MapUtil.putIfValNoNull(configAdvanceInfo, "schema", schema);
         ParamUtils.checkParam(configAdvanceInfo);
-        
+
         if (AggrWhitelist.isAggrDataId(dataId)) {
             LOGGER.warn("[aggr-conflict] {} attempt to publish single data, {}, {}", RequestUtil.getRemoteIp(request),
                     dataId, group);
             throw new NacosException(NacosException.NO_RIGHT, "dataId:" + dataId + " is aggr");
         }
-        
+
         final Timestamp time = TimeUtils.getCurrentTime();
         String betaIps = request.getHeader("betaIps");
         ConfigInfo configInfo = new ConfigInfo(dataId, group, tenant, appName, content);
@@ -182,7 +183,7 @@ public class ConfigController {
                         ConfigTraceService.PERSISTENCE_EVENT_PUB, content);
         return true;
     }
-    
+
     /**
      * Get configure board information fail.
      *
@@ -203,12 +204,12 @@ public class ConfigController {
         // check params
         ParamUtils.checkParam(dataId, group, "datumId", "content");
         ParamUtils.checkParam(tag);
-        
+
         final String clientIp = RequestUtil.getRemoteIp(request);
         String isNotify = request.getHeader("notify");
         inner.doGetConfig(request, response, dataId, group, tenant, tag, isNotify, clientIp);
     }
-    
+
     /**
      * Get the specific configuration information that the console USES.
      *
@@ -226,7 +227,7 @@ public class ConfigController {
         ParamUtils.checkParam(dataId, group, "datumId", "content");
         return persistService.findConfigAllInfo(dataId, group, tenant);
     }
-    
+
     /**
      * Synchronously delete all pre-aggregation data under a dataId.
      *
@@ -257,7 +258,7 @@ public class ConfigController {
                 .notifyConfigChange(new ConfigDataChangeEvent(false, dataId, group, tenant, tag, time.getTime()));
         return true;
     }
-    
+
     /**
      * Execute delete config operation.
      *
@@ -286,7 +287,7 @@ public class ConfigController {
         }
         return RestResultUtils.success(true);
     }
-    
+
     @GetMapping("/catalog")
     @Secured(action = ActionTypes.READ, parser = ConfigResourceParser.class)
     public RestResult<ConfigAdvanceInfo> getConfigAdvanceInfo(@RequestParam("dataId") String dataId,
@@ -298,7 +299,7 @@ public class ConfigController {
         rr.setData(configInfo);
         return rr;
     }
-    
+
     /**
      * The client listens for configuration changes.
      */
@@ -306,27 +307,27 @@ public class ConfigController {
     @Secured(action = ActionTypes.READ, parser = ConfigResourceParser.class)
     public void listener(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        
+
         request.setAttribute("org.apache.catalina.ASYNC_SUPPORTED", true);
         String probeModify = request.getParameter("Listening-Configs");
         if (StringUtils.isBlank(probeModify)) {
             LOGGER.warn("invalid probeModify is blank");
             throw new IllegalArgumentException("invalid probeModify");
         }
-        
+
         probeModify = URLDecoder.decode(probeModify, Constants.ENCODE);
-        
+
         Map<String, String> clientMd5Map;
         try {
             clientMd5Map = MD5Util.getClientMd5Map(probeModify);
         } catch (Throwable e) {
             throw new IllegalArgumentException("invalid probeModify");
         }
-        
+
         // do long-polling
         inner.doPollingConfig(request, response, clientMd5Map, probeModify.length());
     }
-    
+
     /**
      * Subscribe to configured client information.
      */
@@ -344,7 +345,7 @@ public class ConfigController {
         }
         return gls;
     }
-    
+
     /**
      * Query the configuration information and return it in JSON format.
      */
@@ -370,7 +371,7 @@ public class ConfigController {
             throw new RuntimeException(errorMsg, e);
         }
     }
-    
+
     /**
      * Fuzzy query configuration information. Fuzzy queries based only on content are not allowed, that is, both dataId
      * and group are NULL, but content is not NULL. In this case, all configurations are returned.
@@ -397,7 +398,7 @@ public class ConfigController {
             throw new RuntimeException(errorMsg, e);
         }
     }
-    
+
     /**
      * Execute to remove beta operation.
      *
@@ -428,7 +429,7 @@ public class ConfigController {
         rr.setMessage("stop beta ok");
         return rr;
     }
-    
+
     /**
      * Execute to query beta operation.
      *
@@ -456,7 +457,7 @@ public class ConfigController {
             return rr;
         }
     }
-    
+
     /**
      * Execute export config operation.
      *
@@ -500,7 +501,7 @@ public class ConfigController {
         if (metaData != null) {
             zipItemList.add(new ZipUtils.ZipItem(Constants.CONFIG_EXPORT_METADATA, metaData.toString()));
         }
-        
+
         HttpHeaders headers = new HttpHeaders();
         String fileName =
                 EXPORT_CONFIG_FILE_NAME + DateFormatUtils.format(new Date(), EXPORT_CONFIG_FILE_NAME_DATE_FORMAT)
@@ -508,7 +509,7 @@ public class ConfigController {
         headers.add("Content-Disposition", "attachment;filename=" + fileName);
         return new ResponseEntity<byte[]>(ZipUtils.zip(zipItemList), headers, HttpStatus.OK);
     }
-    
+
     /**
      * new version export config add metadata.yml file record config metadata.
      *
@@ -544,7 +545,7 @@ public class ConfigController {
         }
         ConfigMetadata configMetadata = new ConfigMetadata();
         configMetadata.setMetadata(configMetadataItems);
-    
+
         zipItemList.add(new ZipUtils.ZipItem(Constants.CONFIG_EXPORT_METADATA_NEW,
                 YamlParserUtil.dumpObject(configMetadata)));
         HttpHeaders headers = new HttpHeaders();
@@ -554,7 +555,7 @@ public class ConfigController {
         headers.add("Content-Disposition", "attachment;filename=" + fileName);
         return new ResponseEntity<>(ZipUtils.zip(zipItemList), headers, HttpStatus.OK);
     }
-    
+
     /**
      * Execute import and publish config operation.
      *
@@ -574,11 +575,11 @@ public class ConfigController {
             @RequestParam(value = "policy", defaultValue = "ABORT") SameConfigPolicy policy, MultipartFile file)
             throws NacosException {
         Map<String, Object> failedData = new HashMap<>(4);
-        
+
         if (Objects.isNull(file)) {
             return RestResultUtils.buildResult(ResultCodeEnum.DATA_EMPTY, failedData);
         }
-        
+
         namespace = NamespaceUtil.processNamespaceParameter(namespace);
         if (StringUtils.isNotBlank(namespace) && persistService.tenantInfoCountByTenantId(namespace) <= 0) {
             failedData.put("succCount", 0);
@@ -608,7 +609,7 @@ public class ConfigController {
             LOGGER.error("parsing data failed", e);
             return RestResultUtils.buildResult(ResultCodeEnum.PARSING_DATA_FAILED, failedData);
         }
-        
+
         if (CollectionUtils.isEmpty(configInfoList)) {
             failedData.put("succCount", 0);
             return RestResultUtils.buildResult(ResultCodeEnum.DATA_EMPTY, failedData);
@@ -634,7 +635,7 @@ public class ConfigController {
         }
         return RestResultUtils.success("导入成功", saveResult);
     }
-    
+
     /**
      * old import config.
      *
@@ -647,7 +648,7 @@ public class ConfigController {
     private RestResult<Map<String, Object>> parseImportData(ZipUtils.UnZipResult unziped,
             List<ConfigAllInfo> configInfoList, List<Map<String, String>> unrecognizedList, String namespace) {
         ZipUtils.ZipItem metaDataZipItem = unziped.getMetaDataItem();
-        
+
         Map<String, String> metaDataMap = new HashMap<>(16);
         if (metaDataZipItem != null) {
             // compatible all file separator
@@ -663,7 +664,7 @@ public class ConfigController {
                 metaDataMap.put(metaDataItemArr[0], metaDataItemArr[1]);
             }
         }
-        
+
         List<ZipUtils.ZipItem> itemList = unziped.getZipItemList();
         if (itemList != null && !itemList.isEmpty()) {
             for (ZipUtils.ZipItem item : itemList) {
@@ -695,7 +696,7 @@ public class ConfigController {
         }
         return null;
     }
-    
+
     /**
      * new version import config add .metadata.yml file.
      *
@@ -710,7 +711,7 @@ public class ConfigController {
         ZipUtils.ZipItem metaDataItem = unziped.getMetaDataItem();
         String metaData = metaDataItem.getItemData();
         Map<String, Object> failedData = new HashMap<>(4);
-        
+
         ConfigMetadata configMetadata = YamlParserUtil.loadObject(metaData, ConfigMetadata.class);
         if (configMetadata == null || CollectionUtils.isEmpty(configMetadata.getMetadata())) {
             failedData.put("succCount", 0);
@@ -725,12 +726,12 @@ public class ConfigController {
                 return RestResultUtils.buildResult(ResultCodeEnum.METADATA_ILLEGAL, failedData);
             }
         }
-        
+
         List<ZipUtils.ZipItem> zipItemList = unziped.getZipItemList();
         Set<String> metaDataKeys = configExportItems.stream()
                 .map(metaItem -> GroupKey.getKey(metaItem.getDataId(), metaItem.getGroup()))
                 .collect(Collectors.toSet());
-        
+
         Map<String, String> configContentMap = new HashMap<>(zipItemList.size());
         int itemNameLength = 2;
         zipItemList.forEach(item -> {
@@ -742,7 +743,7 @@ public class ConfigController {
                 unrecognizedList.add(unrecognizedItem);
                 return;
             }
-            
+
             String group = groupAdnDataId[0];
             String dataId = groupAdnDataId[1];
             String key = GroupKey.getKey(dataId, group);
@@ -756,7 +757,7 @@ public class ConfigController {
             String itemData = item.getItemData();
             configContentMap.put(key, itemData);
         });
-        
+
         for (ConfigMetadata.ConfigExportItem configExportItem : configExportItems) {
             String dataId = configExportItem.getDataId();
             String group = configExportItem.getGroup();
@@ -780,7 +781,7 @@ public class ConfigController {
         }
         return null;
     }
-    
+
     /**
      * Execute clone config operation.
      *
@@ -805,29 +806,29 @@ public class ConfigController {
             return RestResultUtils.buildResult(ResultCodeEnum.NO_SELECTED_CONFIG, failedData);
         }
         configBeansList.removeAll(Collections.singleton(null));
-        
+
         namespace = NamespaceUtil.processNamespaceParameter(namespace);
         if (StringUtils.isNotBlank(namespace) && persistService.tenantInfoCountByTenantId(namespace) <= 0) {
             failedData.put("succCount", 0);
             return RestResultUtils.buildResult(ResultCodeEnum.NAMESPACE_NOT_EXIST, failedData);
         }
-        
+
         List<Long> idList = new ArrayList<>(configBeansList.size());
         Map<Long, SameNamespaceCloneConfigBean> configBeansMap = configBeansList.stream()
                 .collect(Collectors.toMap(SameNamespaceCloneConfigBean::getCfgId, cfg -> {
                     idList.add(cfg.getCfgId());
                     return cfg;
                 }, (k1, k2) -> k1));
-        
+
         List<ConfigAllInfo> queryedDataList = persistService.findAllConfigInfo4Export(null, null, null, null, idList);
-        
+
         if (queryedDataList == null || queryedDataList.isEmpty()) {
             failedData.put("succCount", 0);
             return RestResultUtils.buildResult(ResultCodeEnum.DATA_EMPTY, failedData);
         }
-        
+
         List<ConfigAllInfo> configInfoList4Clone = new ArrayList<>(queryedDataList.size());
-        
+
         for (ConfigAllInfo ci : queryedDataList) {
             SameNamespaceCloneConfigBean paramBean = configBeansMap.get(ci.getId());
             ConfigAllInfo ci4save = new ConfigAllInfo();
@@ -845,7 +846,7 @@ public class ConfigController {
             ci4save.setDesc(ci.getDesc());
             configInfoList4Clone.add(ci4save);
         }
-        
+
         if (configInfoList4Clone.isEmpty()) {
             failedData.put("succCount", 0);
             return RestResultUtils.buildResult(ResultCodeEnum.DATA_EMPTY, failedData);
@@ -866,5 +867,5 @@ public class ConfigController {
         }
         return RestResultUtils.success("Clone Completed Successfully", saveResult);
     }
-    
+
 }
